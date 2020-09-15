@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+  ​
+  <springProperty scope="context" name="springAppName" source="spring.application.name"/>
+  <!-- Example for logging into the build folder of your project -->
+  <property name="COMMON_SERVICE" value="${BUILD_FOLDER:-log}/${springAppName}-common-service.log"/>​
+  <property name="COMMON_ERROR" value="${BUILD_FOLDER:-log}/${springAppName}-common-error.log"/>​
+  <property name="COMMON_MONITOR" value="${BUILD_FOLDER:-log}/${springAppName}-common-monitor.log"/>​
+
+
+  <!-- You can override this to have a custom pattern -->
+  <property name="CONSOLE_LOG_PATTERN"
+    value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>
+
+  <!-- Appender to log to console -->
+  <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <!-- Minimum logging level to be presented in the console logs-->
+      <level>DEBUG</level>
+    </filter>
+    <encoder>
+      <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+      <charset>utf8</charset>
+    </encoder>
+  </appender>
+
+  <!-- 所有ERROR日志输出文件 -->
+  <appender name="common_error" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${COMMON_ERROR}</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${COMMON_ERROR}.%d{yyyy-MM-dd}.gz</fileNamePattern>
+      <maxHistory>15</maxHistory>
+      <totalSizeCap>3GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%date{HH:mm:ss.SSS},[%thread] %-5level %logger{36} - %msg,[%X{X-B3-TraceId:-},%X{X-B3-SpanId:-}]
+        %n
+      </pattern>
+    </encoder>
+    <!-- 所有error日志都在这里-->
+    <!--
+      ch.qos.logback.classic.filter.LevelFilter：配合onMatch和onMismatch，只打印warn级别
+      ch.qos.logback.classic.filter.ThresholdFilter：打印warn级别以上日志
+    -->
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>WARN</level>
+      <!--<onMatch>ACCEPT</onMatch>-->
+      <!--<onMismatch>DENY</onMismatch>-->
+    </filter>
+  </appender>
+
+  <!-- 通配拦截-应用监控日志 -->
+  <appender name="common_service" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${COMMON_SERVICE}</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${COMMON_SERVICE}.%d{yyyy-MM-dd}.gz</fileNamePattern>
+      <maxHistory>15</maxHistory>
+      <totalSizeCap>3GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%date{HH:mm:ss.SSS},[%thread] %-5level %logger{36} - %msg,[%X{X-B3-TraceId:-},%X{X-B3-SpanId:-}]
+        %n
+      </pattern>
+    </encoder>
+  </appender>
+
+  <appender name="common_monitor" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${COMMON_MONITOR}</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${COMMON_MONITOR}.%d{yyyy-MM-dd}.gz</fileNamePattern>
+      <maxHistory>15</maxHistory>
+      <totalSizeCap>3GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%date{HH:mm:ss.SSS},[%thread] %-5level %logger{36} - %msg,[%X{X-B3-TraceId:-},%X{X-B3-SpanId:-}]
+        %n
+      </pattern>
+    </encoder>
+  </appender>
+
+  <logger name="common_service" level="INFO" additivity="false">
+    <appender-ref ref="common_service"/>
+    <appender-ref ref="common_error"/>
+  </logger>
+
+  <logger name="common_monitor" level="INFO" additivity="false">
+    <appender-ref ref="common_monitor"/>
+  </logger>
+
+  <!-- Appender to log to console -->
+  <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <!-- Minimum logging level to be presented in the console logs-->
+      <level>DEBUG</level>
+    </filter>
+    <encoder>
+      <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+      <charset>utf8</charset>
+    </encoder>
+  </appender>
+
+  <logger name="com.zren" level="WARN" additivity="false">
+    <!--<appender-ref ref="console"/>-->
+
+  </logger>
+
+
+  <root level="INFO">
+    <!--本地用console，不要check in-->
+    <appender-ref ref="console"/>
+
+  </root>
+</configuration>
