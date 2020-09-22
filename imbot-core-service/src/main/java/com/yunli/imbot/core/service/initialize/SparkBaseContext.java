@@ -1,6 +1,8 @@
 package com.yunli.imbot.core.service.initialize;
 
 import com.assembly.common.util.DataUtil;
+import com.assembly.common.util.LogUtil;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.yunli.imbot.core.service.config.SqlConfig;
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 /**
  * com.yunli.imbot.core.service.initialize
@@ -47,23 +50,26 @@ public class SparkBaseContext extends SqlConfig implements Serializable {
     public void refreshContext() {
         val sparkConf = new SparkConf()
                 .setAppName("imbot app")
-                .setMaster("local[2]")
+                .setMaster("local[6]")
                 .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
                 .set("spark.kryo.registrator", MyRegistrator.class.getName())
                 .set("spark.kryoserializer.buffer", "512k")
                 .set("spark.kryoserializer.buffer.max", "512m")
                 .set("spark.rpc.message.maxSize", "512")
-                .set("spark.default.parallelism", "10")
-                .set("spark.driver.maxResultSize", "3g");
+                .set("spark.default.parallelism", "12")
+                .set("spark.driver.maxResultSize", "3g")
+                /*.set("spark.sql.shuffle.partitions", "6")*/;
         sc = new JavaSparkContext(sparkConf);
         sparkSession = SparkSession
-                .builder().sparkContext(sc.sc())
+                .builder().sparkContext(sc.sc())/*.config("spark.sql.shuffle.partitions", 6)*/
                 .getOrCreate();
         sqlContext = new SQLContext(sc.sc());
 
-        machineLearningService.train();
+//        machineLearningService.train();
+//
+//        machineLearningService.predict("你好");
 
-        machineLearningService.predict("你好");
+        readSql();
     }
 
     public JavaRDD<String> leadFile(String path){
@@ -80,8 +86,41 @@ public class SparkBaseContext extends SqlConfig implements Serializable {
         connectionProperties.put("user",getUsername());
         connectionProperties.put("password",getPassword());
         connectionProperties.put("driver",getDriverClassName());
-        Dataset<String> dataset=sqlContext.read().jdbc(getUrl(),"(select id,ask_value from knowledge_base) T",connectionProperties).toJSON();
-        return dataset.toJavaRDD().cache();
+
+        DataFrameReader dataFrameReader=sqlContext.read().format("jdbc")
+                .option("url",getUrl())
+                .option("dbtable","(select id,ask_value from knowledge_base) T")
+                .option("user",getUsername())
+                .option("password",getPassword())
+                .option("driver",getDriverClassName())
+                .option("lowerBound",1)
+                .option("upperBound",3000000)
+                .option("partitionColumn","ID")
+                .option("numPartitions",6);
+
+        Dataset<Row> dataset=dataFrameReader.load().cache();
+
+//        dataset.createOrReplaceTempView("knowledge_base_view");
+//        Dataset<Row> dataset1=sparkSession.sql("select id,ask_value from knowledge_base_view");
+//        dataset1.show(10);
+
+//        Dataset<Row> dataset1=dataset.repartition(6);
+
+        System.out.println("==================> 分区数："+dataset.javaRDD().getNumPartitions());
+
+        dataset.count();
+
+//        dataset.repartition(6).foreachPartition(v1 -> {
+//            System.out.println();
+//        });
+
+
+//        Stopwatch watch1 = Stopwatch.createStarted();
+//        dataset.printSchema();
+//        dataset.show(10);
+//        LogUtil.info("============take耗时:"+watch1.elapsed(TimeUnit.MILLISECONDS)+" ms");
+
+        return dataset.toJSON().javaRDD().cache();
     }
 
     public void insertSql(){
